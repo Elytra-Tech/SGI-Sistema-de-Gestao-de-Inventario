@@ -1,3 +1,16 @@
+import json
+
+if not firebase_admin._apps:
+    # Se estiver na Vercel, lê da variável de ambiente
+    if os.environ.get("FIREBASE_CREDENTIALS"):
+        cred_dict = json.loads(os.environ.get("FIREBASE_CREDENTIALS"))
+        cred = credentials.Certificate(cred_dict)
+    else:
+        # Se estiver no seu PC, lê o arquivo local
+        cred = credentials.Certificate("serviceAccountKey.json")
+    firebase_admin.initialize_app(cred)
+
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import os
 import firebase_admin
