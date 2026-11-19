@@ -1,27 +1,23 @@
-import json
-
-if not firebase_admin._apps:
-    # Se estiver na Vercel, lê da variável de ambiente
-    if os.environ.get("FIREBASE_CREDENTIALS"):
-        cred_dict = json.loads(os.environ.get("FIREBASE_CREDENTIALS"))
-        cred = credentials.Certificate(cred_dict)
-    else:
-        # Se estiver no seu PC, lê o arquivo local
-        cred = credentials.Certificate("serviceAccountKey.json")
-    firebase_admin.initialize_app(cred)
-
-
-from flask import Flask, render_template, request, redirect, url_for, session, flash
 import os
+import json
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import firebase_admin
 from firebase_admin import credentials, firestore
 
 app = Flask(__name__, template_folder='.', static_folder='.', static_url_path='')
 app.secret_key = "techstore_secret_key"
 
-# Inicialização do Firebase Firestore
+# ---------------------------------------------------------
+# INICIALIZAÇÃO DO FIREBASE (COMPATÍVEL COM VERCEL E LOCAL)
+# ---------------------------------------------------------
 if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")
+    if os.environ.get("FIREBASE_CREDENTIALS"):
+        # Se estiver na Vercel, lê do painel de Variáveis de Ambiente
+        cred_dict = json.loads(os.environ.get("FIREBASE_CREDENTIALS"))
+        cred = credentials.Certificate(cred_dict)
+    else:
+        # Se estiver no seu PC, lê o arquivo JSON local
+        cred = credentials.Certificate("serviceAccountKey.json")
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -35,7 +31,6 @@ def login():
         email = request.form["email"]
         senha = request.form["senha"]
         
-        # Validação simples contra contas padrão no Firebase/Sessão
         if email == "gerente@techstore.com" and senha == "123456":
             session["usuario_id"] = "gerente_id"
             session["nome"] = "Gerente TechStore"
@@ -67,13 +62,11 @@ def index():
     if "usuario_id" not in session:
         return redirect(url_for("login"))
         
-    # Busca todos os produtos salvos na coleção do Firestore
     produtos_ref = db.collection("produtos").stream()
     produtos = []
     for doc in produtos_ref:
         p = doc.to_dict()
-        p["id_produto"] = doc.id  # ID gerado pelo Firebase
-        # Valores padrão para manter compatibilidade com o HTML existente
+        p["id_produto"] = doc.id
         p.setdefault("categoria", "Geral")
         p.setdefault("fornecedor", "Padrão")
         produtos.append(p)
@@ -102,7 +95,6 @@ def novo_produto():
             categoria = request.form.get("id_categoria", "Geral")
             fornecedor = request.form.get("id_fornecedor", "Padrão")
 
-            # Salva o documento diretamente no Firestore
             db.collection("produtos").add({
                 "sku": sku,
                 "nome_comercial": nome_comercial,
@@ -123,7 +115,6 @@ def novo_produto():
             flash(f"Erro ao inserir no Firebase: {e}", "danger")
             return redirect(url_for("novo_produto"))
 
-    # Listas simuladas para os selects do formulário HTML
     categorias = [{"id_categoria": "Hardware", "nome": "Hardware"}, {"id_categoria": "Software", "nome": "Software"}]
     fornecedores = [{"id_fornecedor": "Principal", "razao_social": "Fornecedor Principal Ltda"}]
     
@@ -160,7 +151,6 @@ def movimentacao():
         novo_saldo = saldo_atual + quantidade if tipo_operacao == "Entrada" else saldo_atual - quantidade
 
         try:
-            # Atualiza o estoque e registra o log na nuvem
             prod_ref.update({"quantidade_estoque": novo_saldo})
             db.collection("movimentacoes").add({
                 "id_produto": id_produto,
@@ -230,7 +220,6 @@ def checkout():
             
             numero_pedido = f"PED-2026-{abs(hash(cliente_documento + str(valor_total_venda))) % 10000:04d}"
             
-            # Grava a venda principal no Firestore
             venda_ref = db.collection("vendas").document()
             venda_ref.set({
                 "numero_pedido": numero_pedido,
@@ -243,7 +232,6 @@ def checkout():
                 "data_hora": firestore.SERVER_TIMESTAMP
             })
             
-            # Processa os itens e baixa o estoque de cada produto
             for item in itens_a_faturar:
                 db.collection("itens_venda").add({
                     "venda_id": venda_ref.id,
@@ -278,7 +266,6 @@ def recibo(venda_id):
         return redirect(url_for("login"))
         
     if not venda_id or venda_id == "0":
-        # Pega a última venda registrada
         vendas_stream = db.collection("vendas").order_by("data_hora", direction=firestore.Query.DESCENDING).limit(1).stream()
         venda_doc = next(vendas_stream, None)
         if not venda_doc:
@@ -297,12 +284,10 @@ def recibo(venda_id):
         
     venda.setdefault("operador", session.get("nome", "Operador"))
     
-    # Busca os itens da venda
     itens_stream = db.collection("itens_venda").where("venda_id", "==", venda_id).stream()
     itens = []
     for item_doc in itens_stream:
         i = item_doc.to_dict()
-        # Busca o nome do produto correspondente
         p_doc = db.collection("produtos").document(i["produto_id"]).get()
         nome_prod = p_doc.to_dict().get("nome_comercial", "Produto") if p_doc.exists else "Produto"
         itens.append((nome_prod, i["quantidade_vendida"], i["preco_unitario_praticado"], i["subtotal_item"]))
