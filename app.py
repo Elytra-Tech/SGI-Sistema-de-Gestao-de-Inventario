@@ -8,16 +8,23 @@ app = Flask(__name__, template_folder='.', static_folder='.', static_url_path=''
 app.secret_key = "techstore_secret_key"
 
 # ---------------------------------------------------------
-# INICIALIZAÇÃO DO FIREBASE (COMPATÍVEL COM VERCEL E LOCAL)
+# INICIALIZAÇÃO DO FIREBASE ROBUSTA PARA VERCEL
 # ---------------------------------------------------------
 if not firebase_admin._apps:
-    if os.environ.get("FIREBASE_CREDENTIALS"):
-        # Se estiver na Vercel, lê do painel de Variáveis de Ambiente
-        cred_dict = json.loads(os.environ.get("FIREBASE_CREDENTIALS"))
+    firebase_credentials_str = os.environ.get("FIREBASE_CREDENTIALS")
+    if firebase_credentials_str:
+        try:
+            # Tenta carregar normalmente
+            cred_dict = json.loads(firebase_credentials_str)
+        except json.JSONDecodeError:
+            # Corrige eventuais quebras de linha corrompidas no painel da Vercel
+            cred_dict = json.loads(firebase_credentials_str.replace('\n', '\\n'))
+        
         cred = credentials.Certificate(cred_dict)
     else:
-        # Se estiver no seu PC, lê o arquivo JSON local
+        # Ambiente local
         cred = credentials.Certificate("serviceAccountKey.json")
+    
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -28,9 +35,10 @@ db = firestore.client()
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form["email"]
-        senha = request.form["senha"]
+        email = request.form["email"].strip()
+        senha = request.form["senha"].strip()
         
+        # 1. Verifica contas padrão de teste
         if email == "gerente@techstore.com" and senha == "123456":
             session["usuario_id"] = "gerente_id"
             session["nome"] = "Gerente TechStore"
@@ -43,10 +51,50 @@ def login():
             session["perfil"] = "OPERADOR"
             flash("Login realizado com sucesso!", "success")
             return redirect(url_for("index"))
+            
+        # 2. Busca o usuário cadastrado no Firestore
+        usuarios_ref = db.collection("usuarios").where("email", "==", email).where("senha", "==", senha).stream()
+        usuario_doc = next(usuarios_ref, None)
+        
+        if usuario_doc:
+            dados = usuario_doc.to_dict()
+            session["usuario_id"] = usuario_doc.id
+            session["nome"] = dados.get("nome", "Usuário")
+            session["perfil"] = dados.get("perfil", "OPERADOR")
+            flash("Login realizado com sucesso!", "success")
+            return redirect(url_for("index"))
         else:
             flash("E-mail ou senha incorretos.", "danger")
             
     return render_template("login.html")
+
+@app.route("/cadastro", methods=["GET", "POST"])
+def cadastro():
+    if request.method == "POST":
+        nome = request.form["nome"].strip()
+        email = request.form["email"].strip()
+        senha = request.form["senha"].strip()
+        perfil = request.form.get("perfil", "OPERADOR")
+        
+        try:
+            usuarios_ref = db.collection("usuarios").where("email", "==", email).stream()
+            if list(usuarios_ref):
+                flash("Este e-mail já está cadastrado.", "danger")
+                return redirect(url_for("cadastro"))
+            
+            db.collection("usuarios").add({
+                "nome": nome,
+                "email": email,
+                "senha": senha,
+                "perfil": perfil
+            })
+            
+            flash("Conta criada com sucesso! Faça login.", "success")
+            return redirect(url_for("login"))
+        except Exception as e:
+            flash(f"Erro ao criar conta: {e}", "danger")
+            
+    return render_template("cadastro.html")
 
 @app.route("/logout")
 def logout():

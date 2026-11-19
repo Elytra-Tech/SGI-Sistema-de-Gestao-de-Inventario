@@ -621,3 +621,22 @@ body {
         display: none !important;
     }
 }
+
+/* Ajusta a tabela para ocupar 100% sem transbordar e remove linhas brancas estranhas */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto; /* Deixa o navegador distribuir melhor o espaço */
+}
+
+th, td {
+    padding: 12px 14px;
+    font-size: 13.5px;
+    white-space: nowrap; /* Evita que o texto quebre de forma feia */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important; /* Substitui a linha branca por uma linha translúcida sutil */
+}
+
+/* Remove qualquer borda branca padrão de containers de tabela */
+.table-responsive, .card, div {
+    border-color: transparent !important;
+}

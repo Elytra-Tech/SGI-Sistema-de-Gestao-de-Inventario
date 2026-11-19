@@ -155,6 +155,29 @@
     </main>
 </div>
 
+<!-- Modal de Confirmação Customizado -->
+<div id="deleteModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+    <div style="background: #1c2541; border: 1px solid rgba(255,255,255,0.15); padding: 30px; border-radius: 14px; width: 100%; max-width: 380px; text-align: center; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <div style="font-size: 32px; margin-bottom: 12px;">⚠️</div>
+        <h3 style="margin: 0 0 10px 0; font-size: 18px; font-weight: 600;">Confirmar Exclusão</h3>
+        <p style="color: rgba(255,255,255,0.7); font-size: 13.5px; margin-bottom: 24px;">Tem certeza que deseja excluir este ativo e seus vínculos?</p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button type="button" onclick="fecharModalExclusao()" style="padding: 10px 20px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: #fff; cursor: pointer; font-weight: 600;">Cancelar</button>
+            <a id="btnConfirmarExclusao" href="#" style="padding: 10px 20px; border-radius: 6px; border: none; background: #ef4444; color: #fff; text-decoration: none; cursor: pointer; font-weight: 600;">Excluir</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    function abrirModalExclusao(urlExclusao) {
+        document.getElementById('btnConfirmarExclusao').href = urlExclusao;
+        document.getElementById('deleteModal').style.display = 'flex';
+    }
+    function fecharModalExclusao() {
+        document.getElementById('deleteModal').style.display = 'none';
+    }
+</script>
+
 <script>
     let apenasCriticos = false;
 
