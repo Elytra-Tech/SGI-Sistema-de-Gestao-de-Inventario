@@ -98,7 +98,10 @@
                     <option value="{{ item.id_produto }}">{{ item.sku }} - {{ item.nome_comercial }}</option>
                     {% endfor %}
                 </select>
-                <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
+                <!-- Em vez de usar onclick="return confirm(...)", altere o botão para isto: -->
+<button type="button" onclick="abrirModalExclusao('/sua-rota-de-exclusao')" class="btn-glass" style="background-color: #ef4444; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">
+    Confirmar Exclusão
+</button>
             </form>
         </div>
         {% endif %}

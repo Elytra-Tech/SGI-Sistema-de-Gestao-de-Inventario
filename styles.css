@@ -640,3 +640,55 @@ th, td {
 .table-responsive, .card, div {
     border-color: transparent !important;
 }
+
+/* Container responsivo da tabela com scroll suave e limpo */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    background: rgba(28, 37, 65, 0.4);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 15px;
+}
+
+/* Reduz o tamanho da tabela e deixa os dados mais compactos */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    font-size: 13px; /* Reduz levemente a fonte para caber mais conteúdo */
+}
+
+/* Espaçamento interno (padding) menor para as células */
+th, td {
+    padding: 10px 12px; /* Diminui o respiro vertical/horizontal */
+    white-space: nowrap;
+    color: rgba(255, 255, 255, 0.85);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Cabeçalho da tabela mais limpo */
+th {
+    background: rgba(13, 202, 240, 0.08);
+    color: #0dcaf0;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11.5px;
+    letter-spacing: 0.05em;
+}
+
+/* Estilização elegante da barra de rolagem caso a tabela seja larga */
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+}
+.table-responsive::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+    background: rgba(13, 202, 240, 0.3);
+    border-radius: 10px;
+}
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: rgba(13, 202, 240, 0.6);
+}
