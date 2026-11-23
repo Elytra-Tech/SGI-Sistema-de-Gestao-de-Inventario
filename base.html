@@ -40,6 +40,32 @@
     </div>
 </header>
 
+<!-- Botão Circular Flutuante (Aparece só no celular) -->
+<button class="mobile-fab-btn" id="mobileMenuBtn" aria-label="Abrir menu">
+    <span class="fab-icon"></span>
+</button>
+
+<!-- Fundo Circular que Expande na Diagonal -->
+<div class="mobile-circle-bg" id="mobileCircleBg"></div>
+
+<!-- Conteúdo do Menu que Aparece por Cima -->
+<!-- Conteúdo do Menu Mobile -->
+<nav class="mobile-fullscreen-nav" id="mobileNav" aria-hidden="true">
+    <ul class="mobile-nav-list">
+        <!-- Substitua pelos nomes e rotas reais do seu WMS -->
+        <li><a href="{{ url_for('index') }}" class="mobile-link">Visão Geral</a></li>
+        <li><a href="{{ url_for('novo_produto') }}" class="mobile-link">Cadastrar SKU</a></li>
+        <li><a href="{{ url_for('movimentacao') }}" class="mobile-link">Entrada / Saída</a></li>
+        <li><a href="{{ url_for('checkout') }}" class="mobile-link">Checkout / Expedição</a></li>
+        
+        {% if session.get('role') == 'gerente' %}
+            <li><a href="{{ url_for('usuarios') }}" class="mobile-link">Equipe</a></li>
+        {% endif %}
+        
+        <li><a href="{{ url_for('logout') }}" class="mobile-link btn-sair-mobile">Sair</a></li>
+    </ul>
+</nav>
+
 <main class="content" id="conteudo" tabindex="-1">
     {% block head %}{% endblock %}
 
@@ -66,6 +92,46 @@
 
 {% block overlays %}{% endblock %}
 {% block scripts %}{% endblock %}
+
+<script>
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobileCircleBg = document.getElementById('mobileCircleBg');
+    const mobileNav = document.getElementById('mobileNav');
+    const mobileLinks = document.querySelectorAll('.mobile-link');
+
+    function toggleMenu() {
+        const estaAberto = mobileMenuBtn.classList.toggle('ativo');
+        mobileCircleBg.classList.toggle('ativo');
+        mobileNav.classList.toggle('ativo');
+        mobileNav.setAttribute('aria-hidden', !estaAberto);
+        document.body.style.overflow = estaAberto ? 'hidden' : '';
+    }
+
+    if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', toggleMenu);
+    }
+
+    mobileLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            if (mobileMenuBtn.classList.contains('ativo')) {
+                e.preventDefault();
+                const destino = link.getAttribute('href');
+
+                // Inicia o recolhimento do círculo
+                mobileMenuBtn.classList.remove('ativo');
+                mobileCircleBg.classList.remove('ativo');
+                mobileNav.classList.remove('ativo');
+                mobileNav.setAttribute('aria-hidden', 'true');
+                document.body.style.overflow = '';
+
+                // 250ms é o tempo exato para ver o círculo fechar sem travar a navegação
+                setTimeout(() => {
+                    window.location.href = destino;
+                }, 250);
+            }
+        });
+    });
+</script>
 
 </body>
 </html>
