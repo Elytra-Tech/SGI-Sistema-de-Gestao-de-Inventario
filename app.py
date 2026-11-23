@@ -4,6 +4,7 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import firebase_admin
 from firebase_admin import credentials, firestore
+from datetime import datetime
 
 app = Flask(__name__, template_folder='.', static_folder='.', static_url_path='')
 app.secret_key = "techstore_secret_key"
@@ -40,6 +41,21 @@ def gerente_required(f):
     return decorated_function
 
 # ---------------------------------------------------------
+# FUNÇÃO DE AUDITORIA (LOGS)
+# ---------------------------------------------------------
+def registrar_log(acao, detalhes):
+    try:
+        db.collection("logs_auditoria").add({
+            "usuario_nome": session.get("nome", "Desconhecido"),
+            "usuario_email": session.get("email", "Sem conta"),
+            "acao": acao,
+            "detalhes": detalhes,
+            "data_hora": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        })
+    except Exception as e:
+        print(f"Erro ao registrar log: {e}")
+
+# ---------------------------------------------------------
 # ROTAS DE AUTENTICAÇÃO
 # ---------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
@@ -51,12 +67,14 @@ def login():
         if email == "gerente@techstore.com" and senha == "123456":
             session["usuario_id"] = "gerente_id"
             session["nome"] = "Gerente TechStore"
+            session["email"] = email
             session["perfil"] = "GERENTE"
             flash("Login realizado com sucesso!", "success")
             return redirect(url_for("index"))
         elif email == "operador@techstore.com" and senha == "123456":
             session["usuario_id"] = "operador_id"
             session["nome"] = "Operador WMS"
+            session["email"] = email
             session["perfil"] = "OPERADOR"
             flash("Login realizado com sucesso!", "success")
             return redirect(url_for("index"))
@@ -68,6 +86,7 @@ def login():
             dados = usuario_doc.to_dict()
             session["usuario_id"] = usuario_doc.id
             session["nome"] = dados.get("nome", "Usuário")
+            session["email"] = dados.get("email", email)
             session["perfil"] = dados.get("perfil", "OPERADOR")
             flash("Login realizado com sucesso!", "success")
             return redirect(url_for("index"))
@@ -96,6 +115,7 @@ def cadastro():
                 "senha": senha,
                 "perfil": perfil
             })
+            registrar_log("Criou Conta", f"Novo usuário cadastrado: {email} ({perfil})")
             flash("Conta criada com sucesso! Faça login.", "success")
             return redirect(url_for("login"))
         except Exception as e:
@@ -161,6 +181,9 @@ def novo_produto():
                 "categoria": categoria,
                 "fornecedor": fornecedor
             })
+            
+            registrar_log("Cadastrou SKU", f"Produto: {nome_comercial} | SKU: {sku} | Qtd: {quantidade_estoque}")
+            
             flash("Ativo cadastrado com sucesso no Firebase!", "success")
             return redirect(url_for("index"))
         except Exception as e:
@@ -194,6 +217,7 @@ def movimentacao():
 
         dados = doc.to_dict()
         saldo_atual = int(dados.get("quantidade_estoque", 0))
+        nome_prod = dados.get("nome_comercial", "Produto")
 
         if tipo_operacao == "Saída" and quantidade > saldo_atual:
             flash(f"Operação Bloqueada: Saldo insuficiente. Disponível: {saldo_atual} unidades.", "danger")
@@ -210,6 +234,9 @@ def movimentacao():
                 "justificativa": justificativa,
                 "data": firestore.SERVER_TIMESTAMP
             })
+            
+            registrar_log(f"Movimentação ({tipo_operacao})", f"Produto: {nome_prod} | Qtd: {quantidade} | Motivo: {justificativa}")
+            
             flash("Movimentação consolidada com sucesso no Firebase!", "success")
             return redirect(url_for("index"))
         except Exception as e:
@@ -219,6 +246,9 @@ def movimentacao():
     produtos = [{"id_produto": d.id, **d.to_dict()} for d in produtos_ref]
     return render_template("form_movimentacao.html", produtos=produtos)
 
+# ---------------------------------------------------------
+# GERENCIAMENTO DE USUÁRIOS E AUDITORIA (EXCLUSIVO GERENTE)
+# ---------------------------------------------------------
 @app.route("/usuarios")
 @gerente_required
 def listar_usuarios():
@@ -228,7 +258,12 @@ def listar_usuarios():
         u = doc.to_dict()
         u["id"] = doc.id
         lista_usuarios.append(u)
-    return render_template("usuarios.html", usuarios=lista_usuarios)
+        
+    # Pega os últimos 20 logs de auditoria para exibir no painel
+    logs_ref = db.collection("logs_auditoria").order_by("data_hora", direction=firestore.Query.DESCENDING).limit(20).stream()
+    logs = [log.to_dict() for log in logs_ref]
+    
+    return render_template("usuarios.html", usuarios=lista_usuarios, logs=logs)
 
 @app.route("/usuarios/excluir/<usuario_id>", methods=["POST"])
 @gerente_required
@@ -237,8 +272,16 @@ def excluir_usuario(usuario_id):
         flash("Você não pode excluir a sua própria conta logada!", "danger")
         return redirect(url_for("listar_usuarios"))
     
-    db.collection("usuarios").document(usuario_id).delete()
-    flash("Acesso do colaborador removido com sucesso!", "success")
+    try:
+        user_doc = db.collection("usuarios").document(usuario_id).get()
+        user_email = user_doc.to_dict().get("email", "Desconhecido") if user_doc.exists else "Desconhecido"
+        
+        db.collection("usuarios").document(usuario_id).delete()
+        registrar_log("Excluiu Usuário", f"Colaborador removido do sistema: {user_email}")
+        flash("Acesso do colaborador removido com sucesso!", "success")
+    except Exception as e:
+        flash(f"Erro ao excluir usuário: {e}", "danger")
+        
     return redirect(url_for("listar_usuarios"))
 
 # ---------------------------------------------------------
@@ -261,6 +304,7 @@ def checkout():
         try:
             valor_total_venda = 0
             itens_a_faturar = []
+            nomes_produtos_vendidos = []
             
             for i in range(len(produtos_ids)):
                 p_id = produtos_ids[i]
@@ -274,13 +318,16 @@ def checkout():
                 
                 prod_data = doc.to_dict()
                 estoque_atual = int(prod_data.get("quantidade_estoque", 0))
+                nome_prod = prod_data.get('nome_comercial', '')
                 
                 if estoque_atual < qtd:
-                    raise Exception(f"Estoque insuficiente para o produto {prod_data.get('nome_comercial', '')}!")
+                    raise Exception(f"Estoque insuficiente para o produto {nome_prod}!")
                 
                 preco_unitario = float(prod_data.get("preco_venda", 0))
                 subtotal = preco_unitario * qtd
                 valor_total_venda += subtotal
+                
+                nomes_produtos_vendidos.append(f"{qtd}x {nome_prod}")
                 
                 itens_a_faturar.append({
                     "produto_id": p_id,
@@ -288,7 +335,7 @@ def checkout():
                     "preco_unitario": preco_unitario,
                     "subtotal": subtotal,
                     "estoque_atual": estoque_atual,
-                    "nome": prod_data.get("nome_comercial", "")
+                    "nome": nome_prod
                 })
             
             numero_pedido = f"PED-2026-{abs(hash(cliente_documento + str(valor_total_venda))) % 10000:04d}"
@@ -316,6 +363,8 @@ def checkout():
                 
                 novo_estoque = item["estoque_atual"] - item["quantidade"]
                 db.collection("produtos").document(item["produto_id"]).update({"quantidade_estoque": novo_estoque})
+            
+            registrar_log("Realizou Venda (Checkout)", f"Pedido {numero_pedido} | Cliente: {cliente_nome} | Total: R$ {valor_total_venda:.2f}")
             
             flash(f"Venda {numero_pedido} realizada com sucesso na nuvem!", "success")
             return redirect(url_for("recibo", venda_id=venda_ref.id))
@@ -371,7 +420,7 @@ def recibo(venda_id):
 # EXCLUSÃO DE ATIVO (EXCLUSIVO GERENTE)
 # ---------------------------------------------------------
 @app.route('/produto/excluir-selecionado', methods=['POST'])
-@gerente_required
+@gerened_required if 'gerened_required' in globals() else gerente_required
 def excluir_selecionado():
     id_produto = request.form.get("id_produto")
     if not id_produto:
@@ -379,14 +428,19 @@ def excluir_selecionado():
         return redirect(url_for('index'))
         
     try:
+        prod_doc = db.collection("produtos").document(id_produto).get()
+        nome_prod = prod_doc.to_dict().get("nome_comercial", "Desconhecido") if prod_doc.exists else "Desconhecido"
+        sku_prod = prod_doc.to_dict().get("sku", "N/A") if prod_doc.exists else "N/A"
+        
         db.collection("produtos").document(id_produto).delete()
+        
+        registrar_log("Excluiu Produto", f"Produto removido: {nome_prod} (SKU: {sku_prod})")
+        
         flash("Ativo excluído com sucesso do Firebase!", "success")
     except Exception as e:
         flash(f"Erro ao excluir ativo: {e}", "danger")
         
     return redirect(url_for('index'))
-
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

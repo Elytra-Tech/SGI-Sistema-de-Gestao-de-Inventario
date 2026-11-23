@@ -58,6 +58,42 @@
         </table>
     </div>
 </section>
+
+<!-- Histórico de Auditoria dentro do bloco de conteúdo -->
+<section class="panel" aria-labelledby="titulo-auditoria" style="margin-top: 2rem;">
+    <div class="section-head">
+        <h2 id="titulo-auditoria" class="section-title">Histórico de Alterações (Auditoria)</h2>
+        <p class="section-count">{{ logs|length }} registros</p>
+    </div>
+
+    <div class="table-wrap" tabindex="0" role="region" aria-labelledby="titulo-auditoria">
+        <table>
+            <caption class="sr-only">Histórico de ações e alterações realizadas no sistema</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Data / Hora</th>
+                    <th scope="col">Usuário (Conta)</th>
+                    <th scope="col">Ação</th>
+                    <th scope="col">Detalhes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td class="cell-muted">{{ log.data_hora }}</td>
+                    <td><strong>{{ log.usuario_nome }}</strong><br><small class="cell-muted">{{ log.usuario_email }}</small></td>
+                    <td>{{ log.acao }}</td>
+                    <td class="cell-muted">{{ log.detalhes }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 20px;">Nenhuma alteração registrada ainda.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
 {% endblock %}
 
 {% block overlays %}
