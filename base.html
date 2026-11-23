@@ -54,12 +54,13 @@
     <ul class="mobile-nav-list">
         <!-- Substitua pelos nomes e rotas reais do seu WMS -->
         <li><a href="{{ url_for('index') }}" class="mobile-link">Visão Geral</a></li>
-        <li><a href="{{ url_for('novo_produto') }}" class="mobile-link">Cadastrar SKU</a></li>
         <li><a href="{{ url_for('movimentacao') }}" class="mobile-link">Entrada / Saída</a></li>
         <li><a href="{{ url_for('checkout') }}" class="mobile-link">Checkout / Expedição</a></li>
         
-        {% if session.get('role') == 'gerente' %}
-            <li><a href="{{ url_for('usuarios') }}" class="mobile-link">Equipe</a></li>
+        {% set perfil_atual = session.get('perfil', '') | upper %}
+        {% if 'GERENT' in perfil_atual %}
+        <li><a href="{{ url_for('novo_produto') }}" class="mobile-link">Cadastrar SKU</a></li>
+        <li><a href="{{ url_for('listar_usuarios') }}" class="mobile-link">Equipe</a></li>
         {% endif %}
         
         <li><a href="{{ url_for('logout') }}" class="mobile-link btn-sair-mobile">Sair</a></li>
