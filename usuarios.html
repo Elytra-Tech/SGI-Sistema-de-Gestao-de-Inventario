@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciar Equipe - TechStore WMS{% endblock %}
+
+{% block head %}
+<header class="page-header">
+    <div>
+        <p class="eyebrow">Acessos</p>
+        <h1 class="page-title">Equipe e acessos</h1>
+        <p class="lead">Visualize os colaboradores cadastrados e controle as permissões do sistema.</p>
+    </div>
+    <div class="page-actions"><a href="/" class="btn">Voltar ao estoque</a></div>
+</header>
+{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="titulo-equipe">
+    <div class="section-head">
+        <h2 id="titulo-equipe" class="section-title">Colaboradores</h2>
+        <p class="section-count">{{ usuarios|length }} registros</p>
+    </div>
+
+    <div class="table-wrap" tabindex="0" role="region" aria-labelledby="titulo-equipe">
+        <table>
+            <caption class="sr-only">Colaboradores cadastrados e seus perfis de acesso</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Nome do colaborador</th>
+                    <th scope="col">E-mail corporativo</th>
+                    <th scope="col">Perfil de acesso</th>
+                    <th scope="col" class="num">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios %}
+                <tr>
+                    <td class="cell-product">{{ u.nome }}</td>
+                    <td class="cell-muted">{{ u.email }}</td>
+                    <td>
+                        {% if u.perfil == 'GERENTE' %}
+                            <span class="role-tag is-manager">Gerente</span>
+                        {% else %}
+                            <span class="role-tag">Operador</span>
+                        {% endif %}
+                    </td>
+                    <td class="num">
+                        {% if u.id != session.get('usuario_id') %}
+                            <form id="form-excluir-{{ u.id }}" action="/usuarios/excluir/{{ u.id }}" method="POST" style="display: inline;">
+                                <button type="button" onclick="abrirModalUsuario('form-excluir-{{ u.id }}', '{{ u.nome }}', this)" class="btn btn-danger btn-sm" aria-label="Remover acesso de {{ u.nome }}">Remover acesso</button>
+                            </form>
+                        {% else %}
+                            <span class="cell-muted">Conta atual</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block overlays %}
+<div id="deleteModal" class="modal" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-titulo" aria-describedby="modal-desc">
+        <h2 id="modal-titulo">Remover acesso</h2>
+        <p id="modal-desc">Tem certeza que deseja remover o acesso de <strong id="modal-nome-usuario"></strong>? Esta ação não pode ser desfeita.</p>
+        <div class="modal-actions">
+            <button type="button" id="modal-cancelar" onclick="fecharModalUsuario()" class="btn">Cancelar</button>
+            <button type="button" onclick="executarExclusaoUsuario()" class="btn btn-danger">Remover</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let formParaEnviar = null;
+    let ultimoFoco = null;
+
+    function abrirModalUsuario(formId, nomeUsuario, origem) {
+        formParaEnviar = document.getElementById(formId);
+        ultimoFoco = origem || document.activeElement;
+        document.getElementById('modal-nome-usuario').textContent = nomeUsuario;
+        document.getElementById('deleteModal').hidden = false;
+        document.getElementById('modal-cancelar').focus();
+    }
+
+    function fecharModalUsuario() {
+        document.getElementById('deleteModal').hidden = true;
+        formParaEnviar = null;
+        if (ultimoFoco) ultimoFoco.focus();
+    }
+
+    function executarExclusaoUsuario() {
+        if (formParaEnviar) formParaEnviar.submit();
+    }
+
+    document.addEventListener('keydown', e => {
+        const modal = document.getElementById('deleteModal');
+        if (!modal.hidden) {
+            if (e.key === 'Escape') { fecharModalUsuario(); return; }
+            if (e.key === 'Tab') {
+                const focaveis = modal.querySelectorAll('button');
+                const primeiro = focaveis[0], ultimo = focaveis[focaveis.length - 1];
+                if (e.shiftKey && document.activeElement === primeiro) { e.preventDefault(); ultimo.focus(); }
+                else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
+            }
+        }
+    });
+
+    document.getElementById('deleteModal').addEventListener('click', e => {
+        if (e.target.id === 'deleteModal') fecharModalUsuario();
+    });
+</script>
+{% endblock %}

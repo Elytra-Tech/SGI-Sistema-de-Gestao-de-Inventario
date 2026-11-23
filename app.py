@@ -1,5 +1,6 @@
 import os
 import json
+from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -14,23 +15,32 @@ if not firebase_admin._apps:
     firebase_credentials_str = os.environ.get("FIREBASE_CREDENTIALS")
     if firebase_credentials_str:
         try:
-            # Tenta carregar normalmente
             cred_dict = json.loads(firebase_credentials_str)
         except json.JSONDecodeError:
-            # Corrige eventuais quebras de linha corrompidas no painel da Vercel
             cred_dict = json.loads(firebase_credentials_str.replace('\n', '\\n'))
-        
         cred = credentials.Certificate(cred_dict)
     else:
-        # Ambiente local
         cred = credentials.Certificate("serviceAccountKey.json")
-    
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
 # ---------------------------------------------------------
-# ROTAS DE AUTENTICAÇÃO E RBAC
+# DECORADOR DE CONTROLE DE ACESSO (RBAC)
+# ---------------------------------------------------------
+def gerente_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "usuario_id" not in session:
+            return redirect(url_for("login"))
+        if session.get("perfil") != "GERENTE":
+            flash("Acesso negado: Esta área é restrita a Gerentes.", "danger")
+            return redirect(url_for("index"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# ---------------------------------------------------------
+# ROTAS DE AUTENTICAÇÃO
 # ---------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -38,7 +48,6 @@ def login():
         email = request.form["email"].strip()
         senha = request.form["senha"].strip()
         
-        # 1. Verifica contas padrão de teste
         if email == "gerente@techstore.com" and senha == "123456":
             session["usuario_id"] = "gerente_id"
             session["nome"] = "Gerente TechStore"
@@ -52,7 +61,6 @@ def login():
             flash("Login realizado com sucesso!", "success")
             return redirect(url_for("index"))
             
-        # 2. Busca o usuário cadastrado no Firestore
         usuarios_ref = db.collection("usuarios").where("email", "==", email).where("senha", "==", senha).stream()
         usuario_doc = next(usuarios_ref, None)
         
@@ -88,7 +96,6 @@ def cadastro():
                 "senha": senha,
                 "perfil": perfil
             })
-            
             flash("Conta criada com sucesso! Faça login.", "success")
             return redirect(url_for("login"))
         except Exception as e:
@@ -122,13 +129,11 @@ def index():
     return render_template("index.html", produtos=produtos)
 
 # ---------------------------------------------------------
-# CADASTRAR NOVO PRODUTO
+# CADASTRAR NOVO PRODUTO (EXCLUSIVO GERENTE)
 # ---------------------------------------------------------
 @app.route("/produto/novo", methods=["GET", "POST"])
+@gerente_required
 def novo_produto():
-    if "usuario_id" not in session:
-        return redirect(url_for("login"))
-
     if request.method == "POST":
         try:
             sku = request.form["sku"].strip()
@@ -156,7 +161,6 @@ def novo_produto():
                 "categoria": categoria,
                 "fornecedor": fornecedor
             })
-            
             flash("Ativo cadastrado com sucesso no Firebase!", "success")
             return redirect(url_for("index"))
         except Exception as e:
@@ -165,11 +169,10 @@ def novo_produto():
 
     categorias = [{"id_categoria": "Hardware", "nome": "Hardware"}, {"id_categoria": "Software", "nome": "Software"}]
     fornecedores = [{"id_fornecedor": "Principal", "razao_social": "Fornecedor Principal Ltda"}]
-    
     return render_template("form_produto.html", categorias=categorias, fornecedores=fornecedores)
 
 # ---------------------------------------------------------
-# MOVIMENTAÇÃO DE ESTOQUE
+# MOVIMENTAÇÃO DE ESTOQUE (OPERADOR E GERENTE)
 # ---------------------------------------------------------
 @app.route('/movimentacao', methods=['GET', 'POST'])
 def movimentacao():
@@ -216,8 +219,30 @@ def movimentacao():
     produtos = [{"id_produto": d.id, **d.to_dict()} for d in produtos_ref]
     return render_template("form_movimentacao.html", produtos=produtos)
 
+@app.route("/usuarios")
+@gerente_required
+def listar_usuarios():
+    usuarios_ref = db.collection("usuarios").stream()
+    lista_usuarios = []
+    for doc in usuarios_ref:
+        u = doc.to_dict()
+        u["id"] = doc.id
+        lista_usuarios.append(u)
+    return render_template("usuarios.html", usuarios=lista_usuarios)
+
+@app.route("/usuarios/excluir/<usuario_id>", methods=["POST"])
+@gerente_required
+def excluir_usuario(usuario_id):
+    if usuario_id == session.get("usuario_id"):
+        flash("Você não pode excluir a sua própria conta logada!", "danger")
+        return redirect(url_for("listar_usuarios"))
+    
+    db.collection("usuarios").document(usuario_id).delete()
+    flash("Acesso do colaborador removido com sucesso!", "success")
+    return redirect(url_for("listar_usuarios"))
+
 # ---------------------------------------------------------
-# CHECKOUT TRANSACIONAL
+# CHECKOUT / PDV (OPERADOR E GERENTE)
 # ---------------------------------------------------------
 @app.route("/venda/checkout", methods=["GET", "POST"])
 def checkout():
@@ -343,17 +368,11 @@ def recibo(venda_id):
     return render_template("recibo.html", venda=venda, itens=itens)
 
 # ---------------------------------------------------------
-# EXCLUSÃO DE ATIVO (COM SEGURANÇA RBAC)
+# EXCLUSÃO DE ATIVO (EXCLUSIVO GERENTE)
 # ---------------------------------------------------------
 @app.route('/produto/excluir-selecionado', methods=['POST'])
+@gerente_required
 def excluir_selecionado():
-    if "usuario_id" not in session:
-        return redirect(url_for("login"))
-        
-    if session.get('perfil') != 'GERENTE':
-        flash("Acesso negado. Apenas gerentes podem excluir ativos.", "danger")
-        return redirect(url_for('index'))
-        
     id_produto = request.form.get("id_produto")
     if not id_produto:
         flash("Nenhum produto selecionado.", "danger")
@@ -366,6 +385,8 @@ def excluir_selecionado():
         flash(f"Erro ao excluir ativo: {e}", "danger")
         
     return redirect(url_for('index'))
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

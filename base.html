@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TechStore WMS{% endblock %}</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<a class="skip-link" href="#conteudo">Ir para o conteúdo principal</a>
+
+<header class="topbar">
+    <div class="topbar-inner">
+        <a href="/" class="brand" aria-label="TechStore WMS, ir para a posição de estoque">
+            <span class="brand-mark" aria-hidden="true">T</span>
+            <span>
+                <span class="brand-name">TechStore</span>
+                <span class="brand-sub">WMS &amp; ESTOQUE</span>
+            </span>
+        </a>
+
+        <nav class="nav" aria-label="Navegação principal">
+            <a href="/" class="nav-link" {% if request.path == '/' %}aria-current="page"{% endif %}>Posição de Estoque</a>
+            <a href="/movimentacao" class="nav-link" {% if request.path == '/movimentacao' %}aria-current="page"{% endif %}>Entrada / Saída</a>
+            <a href="/venda/checkout" class="nav-link" {% if request.path.startswith('/venda') %}aria-current="page"{% endif %}>Expedição / PDV</a>
+            {% if session.get('perfil') == 'GERENTE' %}
+                <a href="/produto/novo" class="nav-link" {% if request.path == '/produto/novo' %}aria-current="page"{% endif %}>Cadastrar SKU</a>
+                <a href="/usuarios" class="nav-link" {% if request.path.startswith('/usuarios') %}aria-current="page"{% endif %}>Gerenciar Equipe</a>
+            {% endif %}
+            {% block nav_extra %}{% endblock %}
+        </nav>
+
+        <div class="topbar-user">
+            <div class="user-block">
+                <p class="user-name">{{ session.get('nome', 'Operador') }}</p>
+                <span class="user-role">{{ session.get('perfil', 'OPERADOR') }}</span>
+            </div>
+            <a href="/logout" class="btn btn-sm">Encerrar sessão</a>
+        </div>
+    </div>
+</header>
+
+<main class="content" id="conteudo" tabindex="-1">
+    {% block head %}{% endblock %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                {% if category == 'success' %}
+                    <div class="alert" role="status">
+                        <strong class="alert-label">Sucesso</strong>
+                        <span>{{ message }}</span>
+                    </div>
+                {% else %}
+                    <div class="alert alert-error" role="alert">
+                        <strong class="alert-label">Atenção</strong>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</main>
+
+{% block overlays %}{% endblock %}
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

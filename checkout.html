@@ -1,130 +1,105 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechStore WMS - Expedição / PDV</title>
-    <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
+{% extends "base.html" %}
 
-<div class="app-shell">
-    <aside class="sidebar">
-        <div class="brand-box">
-            <div class="brand-icon">📦</div>
-            <div>
-                <div class="brand-title">TechStore</div>
-                <div class="brand-sub">WMS & Estoque</div>
-            </div>
+{% block title %}Expedição / PDV - TechStore WMS{% endblock %}
+
+{% block head %}
+<header class="page-header">
+    <div>
+        <p class="eyebrow">Expedição / PDV</p>
+        <h1 class="page-title">Ordem de expedição</h1>
+        <p class="lead">Saída transacional de múltiplos itens com baixa imediata no saldo.</p>
+    </div>
+    <div class="page-actions"><a href="/" class="btn">Voltar ao estoque</a></div>
+</header>
+{% endblock %}
+
+{% block content %}
+<section class="panel form-panel" aria-labelledby="titulo-form">
+    <h2 id="titulo-form" class="sr-only">Formulário da ordem de expedição</h2>
+    <p class="form-hint">Todos os campos são obrigatórios. Ao confirmar, o saldo de cada SKU é baixado imediatamente.</p>
+
+    <form method="POST" action="/venda/checkout">
+        <div class="form-grid">
+            <label class="field">
+                <span class="field-label">Destinatário / cliente</span>
+                <input type="text" name="cliente_nome" class="form-control" placeholder="Empresa Exemplo S.A." autocomplete="organization" required>
+            </label>
+            <label class="field">
+                <span class="field-label">Documento (CPF / CNPJ)</span>
+                <input type="text" name="cliente_documento" class="form-control" placeholder="00.000.000/0001-00" inputmode="numeric" required>
+            </label>
         </div>
-        <div class="nav-label">Operações</div>
-        <nav class="nav-menu">
-            <a href="/" class="nav-item">📊 Posição de Estoque</a>
-            <a href="/movimentacao" class="nav-item">⇄ Entrada / Saída</a>
-            <a href="/produto/novo" class="nav-item">➕ Cadastrar SKU</a>
-            <a href="/venda/checkout" class="nav-item active">🛒 Expedição / PDV</a>
-        </nav>
-        <div class="sidebar-footer">
-            <div class="user-card">
-                <span class="user-name">{{ session.get('nome', 'Operador') }}</span>
-                <span class="badge-perfil">{{ session.get('perfil', 'OPERADOR') }}</span>
-            </div>
-            <a href="/logout" class="btn btn-danger" style="width: 100%;">🚪 Encerrar Sessão</a>
+
+        <div class="fieldset-head">
+            <h2>Itens para baixa / picking</h2>
+            <button type="button" class="btn btn-primary btn-sm" onclick="adicionarItem()">Adicionar SKU</button>
         </div>
-    </aside>
 
-    <main class="main-content">
-        <header class="topbar">
-            <div>
-                <h1>Ordem de Expedição & PDV</h1>
-                <p>Saída transacional de múltiplos itens com baixa imediata no saldo</p>
-            </div>
-            <a href="/" class="btn">← Voltar ao Estoque</a>
-        </header>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="{% if category == 'success' %}alert-success-glass{% else %}alert-danger-glass{% endif %}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <section class="panel-box" style="max-width: 880px;">
-            <form method="POST" action="/venda/checkout">
-                <div class="form-grid" style="margin-bottom: 10px;">
-                    <div class="form-group">
-                        <label>Destinatário / Cliente</label>
-                        <input type="text" name="cliente_nome" class="form-control" placeholder="Ex: Empresa Exemplo S.A." required>
-                    </div>
-                    <div class="form-group">
-                        <label>Documento (CPF / CNPJ)</label>
-                        <input type="text" name="cliente_documento" class="form-control" placeholder="00.000.000/0001-00" required>
-                    </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 0 12px 0;">
-                    <label style="font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.04em;">Itens para Baixa / Picking</label>
-                    <button type="button" class="btn btn-primary" style="padding: 7px 12px; font-size: 12.5px;" onclick="adicionarItem()">+ Adicionar SKU</button>
-                </div>
-                
-                <div id="carrinho-itens">
-                    <div class="item-linha">
-                        <div style="flex: 3; min-width: 240px;">
-                            <select name="produto_id[]" class="form-select" required>
-                                <option value="" disabled selected>Escolha um SKU disponível...</option>
-                                {% for p in produtos %}
-                                    <option value="{{ p[0] }}">{{ p[1] }} - R$ {{ "%.2f"|format(p[2]) }} (Disp: {{ p[3] }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div style="flex: 1; min-width: 100px;">
-                            <input type="number" name="quantidade[]" class="form-control" value="1" min="1" required placeholder="Qtd">
-                        </div>
-                        <div>
-                            <button type="button" class="btn btn-danger" style="padding: 10px 12px;" onclick="removerLinha(this)">✕</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group" style="margin-top: 20px; max-width: 340px;">
-                    <label>Condição de Faturamento</label>
-                    <select name="forma_pagamento" class="form-select" required>
-                        <option value="PIX">PIX</option>
-                        <option value="CARTAO_CREDITO">Cartão de Crédito</option>
-                        <option value="BOLETO_FATURADO">Boleto Faturado B2B</option>
+        <div id="carrinho-itens">
+            <div class="item-linha">
+                <label class="field">
+                    <span class="field-label">SKU</span>
+                    <select name="produto_id[]" class="form-select" required>
+                        <option value="" disabled selected>Escolha um SKU disponível...</option>
+                        {% for p in produtos %}
+                            <option value="{{ p[0] }}">{{ p[1] }} - R$ {{ "%.2f"|format(p[2]) }} (Disp: {{ p[3] }})</option>
+                        {% endfor %}
                     </select>
+                </label>
+                <label class="field">
+                    <span class="field-label">Quantidade</span>
+                    <input type="number" name="quantidade[]" class="form-control" value="1" min="1" inputmode="numeric" required>
+                </label>
+                <div class="field">
+                    <button type="button" class="btn btn-sm" onclick="removerLinha(this)">Remover item</button>
                 </div>
+            </div>
+        </div>
 
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-success" style="width: 100%; padding: 13px;">✓ Confirmar Expedição e Baixar Estoque (ACID)</button>
-                </div>
-            </form>
-        </section>
-    </main>
-</div>
+        <p id="aviso-carrinho" class="form-hint" role="status" aria-live="polite">1 item na ordem.</p>
 
+        <label class="field" style="max-width: 360px;">
+            <span class="field-label">Condição de faturamento</span>
+            <select name="forma_pagamento" class="form-select" required>
+                <option value="PIX">PIX</option>
+                <option value="CARTAO_CREDITO">Cartão de Crédito</option>
+                <option value="BOLETO_FATURADO">Boleto Faturado B2B</option>
+            </select>
+        </label>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-block">Confirmar expedição e baixar estoque</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
 <script>
+    function atualizarAviso(prefixo) {
+        const total = document.querySelectorAll('.item-linha').length;
+        const texto = total === 1 ? '1 item na ordem.' : total + ' itens na ordem.';
+        document.getElementById('aviso-carrinho').textContent = (prefixo ? prefixo + ' ' : '') + texto;
+    }
+
     function adicionarItem() {
         const container = document.getElementById('carrinho-itens');
-        const primeiraLinha = container.querySelector('.item-linha');
-        const novaLinha = primeiraLinha.cloneNode(true);
-        novaLinha.querySelector('select').selectedIndex = 0;
-        novaLinha.querySelector('input').value = 1;
-        container.appendChild(novaLinha);
+        const nova = container.querySelector('.item-linha').cloneNode(true);
+        nova.querySelector('select').selectedIndex = 0;
+        nova.querySelector('input').value = 1;
+        container.appendChild(nova);
+        nova.querySelector('select').focus();
+        atualizarAviso('Item adicionado.');
     }
 
     function removerLinha(botao) {
-        const linhas = document.querySelectorAll('.item-linha');
-        if (linhas.length > 1) {
+        if (document.querySelectorAll('.item-linha').length > 1) {
             botao.closest('.item-linha').remove();
+            document.querySelector('.item-linha select').focus();
+            atualizarAviso('Item removido.');
         } else {
-            alert("A ordem precisa ter pelo menos um item.");
+            document.getElementById('aviso-carrinho').textContent = 'A ordem precisa ter pelo menos um item.';
         }
     }
 </script>
-
-</body>
-</html>
+{% endblock %}

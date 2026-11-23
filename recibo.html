@@ -1,69 +1,84 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechStore WMS - Comprovante de Saída</title>
+    <title>Romaneio {{ venda[1] }} - TechStore WMS</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+<a class="skip-link" href="#conteudo">Ir para o conteúdo principal</a>
 
-<div class="centered-screen">
-    <div class="receipt-box">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 20px; margin-bottom: 22px; flex-wrap: wrap; gap: 12px;">
+<main class="receipt-page" id="conteudo" tabindex="-1">
+    <article class="receipt" aria-labelledby="titulo-romaneio">
+        <header class="receipt-top">
             <div>
-                <h2 style="font-size: 20px; font-weight: 700;">TechStore WMS — Romaneio / Faturamento</h2>
-                <p style="font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 4px;">Comprovante Oficial de Baixa de Estoque e Expedição</p>
+                <div class="brand">
+                    <span class="brand-mark" aria-hidden="true">T</span>
+                    <span>
+                        <span class="brand-name">TechStore</span>
+                        <span class="brand-sub">WMS &amp; ESTOQUE</span>
+                    </span>
+                </div>
+                <h1 id="titulo-romaneio" class="receipt-title">Romaneio de expedição</h1>
+                <p class="lead">Comprovante oficial de baixa de estoque.</p>
             </div>
-            <span class="sku-badge" style="font-size: 13px; padding: 6px 12px;">Ordem: {{ venda[1] }}</span>
-        </div>
+            <span class="receipt-order">Ordem {{ venda[1] }}</span>
+        </header>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; background: rgba(14, 24, 48, 0.45); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); font-size: 13.5px; margin-bottom: 24px;">
+        <dl class="meta-grid">
             <div>
-                <p style="margin-bottom: 4px;"><span style="color: rgba(255,255,255,0.6);">Data/Hora:</span> <strong>{{ venda[2] }}</strong></p>
-                <p><span style="color: rgba(255,255,255,0.6);">Conferente:</span> <strong>{{ venda[7] }}</strong></p>
+                <dt>Data / hora</dt>
+                <dd class="mono">{{ venda[2] }}</dd>
+                <dt>Conferente</dt>
+                <dd>{{ venda[7] }}</dd>
             </div>
             <div>
-                <p style="margin-bottom: 4px;"><span style="color: rgba(255,255,255,0.6);">Destinatário:</span> <strong>{{ venda[3] }}</strong></p>
-                <p style="margin-bottom: 4px;"><span style="color: rgba(255,255,255,0.6);">Documento:</span> <strong>{{ venda[4] }}</strong></p>
-                <p><span style="color: rgba(255,255,255,0.6);">Faturamento:</span> <strong>{{ venda[5] }}</strong></p>
+                <dt>Destinatário</dt>
+                <dd>{{ venda[3] }}</dd>
+                <dt>Documento</dt>
+                <dd class="mono">{{ venda[4] }}</dd>
             </div>
-        </div>
+            <div>
+                <dt>Faturamento</dt>
+                <dd>{{ venda[5] }}</dd>
+            </div>
+        </dl>
 
-        <div class="table-responsive" style="margin-bottom: 24px;">
-            <table class="wms-table">
+        <div class="table-wrap" tabindex="0" role="region" aria-labelledby="titulo-romaneio">
+            <table>
+                <caption class="sr-only">Itens da ordem de expedição</caption>
                 <thead>
                     <tr>
-                        <th>Produto / Ativo</th>
-                        <th style="text-align: center;">Qtd</th>
-                        <th style="text-align: right;">Valor Unit.</th>
-                        <th style="text-align: right;">Subtotal</th>
+                        <th scope="col">Produto / ativo</th>
+                        <th scope="col" class="ctr">Qtd</th>
+                        <th scope="col" class="num">Valor unit.</th>
+                        <th scope="col" class="num">Subtotal</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in itens %}
                     <tr>
-                        <td style="font-weight: 500;">{{ item[0] }}</td>
-                        <td style="text-align: center; font-family: 'JetBrains Mono', monospace;">{{ item[1] }}</td>
-                        <td style="text-align: right; font-family: 'JetBrains Mono', monospace;">R$ {{ "%.2f"|format(item[2]) }}</td>
-                        <td style="text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">R$ {{ "%.2f"|format(item[3]) }}</td>
+                        <td class="cell-product">{{ item[0] }}</td>
+                        <td class="ctr cell-mono">{{ item[1] }}</td>
+                        <td class="num cell-mono">R$ {{ "%.2f"|format(item[2]) }}</td>
+                        <td class="num cell-qty">R$ {{ "%.2f"|format(item[3]) }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(13, 202, 240, 0.12); border: 1px solid rgba(13, 202, 240, 0.35); border-radius: 12px;">
-            <span style="font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Valor Total da Ordem</span>
-            <span style="font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #0dcaf0;">R$ {{ "%.2f"|format(venda[6]) }}</span>
+        <div class="receipt-total">
+            <span class="receipt-total-label">Valor total da ordem</span>
+            <span class="receipt-total-value">R$ {{ "%.2f"|format(venda[6]) }}</span>
         </div>
 
-        <div class="no-print" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; flex-wrap: wrap;">
-            <a href="/" class="btn">← Voltar ao Estoque</a>
-            <button type="button" onclick="window.print()" class="btn btn-primary">🖨️ Imprimir Romaneio / PDF</button>
+        <div class="receipt-actions no-print">
+            <a href="/" class="btn">Voltar ao estoque</a>
+            <button type="button" onclick="window.print()" class="btn btn-primary">Imprimir romaneio</button>
         </div>
-    </div>
-</div>
-
+    </article>
+</main>
 </body>
 </html>

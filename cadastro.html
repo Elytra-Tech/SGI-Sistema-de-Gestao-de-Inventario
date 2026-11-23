@@ -1,75 +1,64 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechStore - Cadastro</title>
+    <title>Cadastro - TechStore WMS</title>
     <link rel="stylesheet" href="/styles.css">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .glass-card {
-            width: 100%;
-            max-width: 400px;
-            margin: 20px;
-            box-sizing: border-box;
-        }
-    </style>
 </head>
 <body>
+<a class="skip-link" href="#conteudo">Ir para o formulário</a>
 
-    <div class="glass-card">
-        <div style="text-align: center; margin-bottom: 24px;">
-            <div style="width: 48px; height: 48px; margin: 0 auto 14px; border-radius: 14px; background: rgba(13, 202, 240, 0.15); border: 1px solid rgba(13, 202, 240, 0.4); display: flex; align-items: center; justify-content: center; font-size: 22px;">
-                ⚡
-            </div>
-            <h2 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em;">TechStore <span style="color: #0dcaf0;">SGI</span></h2>
-            <p style="margin: 6px 0 0 0; font-size: 13.5px; color: rgba(255,255,255,0.65);">Crie sua conta para acessar o sistema</p>
+<main class="auth" id="conteudo" tabindex="-1">
+    <div class="auth-card">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true">T</span>
+            <span>
+                <span class="brand-name">TechStore</span>
+                <span class="brand-sub">WMS &amp; ESTOQUE</span>
+            </span>
         </div>
+
+        <h1>Crie sua conta</h1>
+        <p class="lead">Preencha os dados abaixo para acessar o sistema.</p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="{% if category == 'success' %}alert-success-glass{% else %}alert-danger-glass{% endif %}">
-                        {{ message }}
-                    </div>
+                    {% if category == 'success' %}
+                        <div class="alert" role="status"><strong class="alert-label">Sucesso</strong><span>{{ message }}</span></div>
+                    {% else %}
+                        <div class="alert alert-error" role="alert"><strong class="alert-label">Atenção</strong><span>{{ message }}</span></div>
+                    {% endif %}
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
         <form method="POST" action="/cadastro">
-            <div class="form-group">
-                <label>Nome Completo</label>
-                <input type="text" name="nome" class="form-control" placeholder="ex: João Silva" required>
-            </div>
-            <div class="form-group">
-                <label>E-mail Corporativo</label>
-                <input type="email" name="email" class="form-control" placeholder="ex: joao@techstore.com" required>
-            </div>
-            <div class="form-group">
-                <label>Senha</label>
-                <input type="password" name="senha" class="form-control" placeholder="••••••••" required>
-            </div>
-            <div class="form-group" style="margin-bottom: 24px;">
-                <label>Perfil de Acesso</label>
-                <select name="perfil" class="form-control" style="background-color: #1c2541; color: #fff;">
+            <label class="field">
+                <span class="field-label">Nome completo</span>
+                <input type="text" name="nome" class="form-control" placeholder="João Silva" autocomplete="name" required>
+            </label>
+            <label class="field">
+                <span class="field-label">E-mail corporativo</span>
+                <input type="email" name="email" class="form-control" placeholder="joao@techstore.com" autocomplete="email" required>
+            </label>
+            <label class="field">
+                <span class="field-label">Senha</span>
+                <input type="password" name="senha" class="form-control" placeholder="Crie uma senha" autocomplete="new-password" required>
+            </label>
+            <label class="field">
+                <span class="field-label">Perfil de acesso</span>
+                <select name="perfil" class="form-select">
                     <option value="GERENTE">Gerente (Acesso Total)</option>
                     <option value="OPERADOR">Operador (Estoque e Vendas)</option>
                 </select>
-            </div>
-            <button type="submit" class="btn-glass btn-cyan" style="width: 100%; padding: 12px; font-size: 14px;">Criar Conta</button>
+            </label>
+            <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
         </form>
 
-        <div style="text-align: center; margin-top: 20px;">
-            <a href="/login" style="color: #0dcaf0; font-size: 13px; text-decoration: none;">Já tem uma conta? Faça login</a>
-        </div>
+        <p class="auth-switch">Já tem uma conta? <a href="/login">Faça login</a></p>
     </div>
-
+</main>
 </body>
 </html>
