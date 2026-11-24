@@ -420,7 +420,7 @@ def recibo(venda_id):
 # EXCLUSÃO DE ATIVO (EXCLUSIVO GERENTE)
 # ---------------------------------------------------------
 @app.route('/produto/excluir-selecionado', methods=['POST'])
-@gerened_required if 'gerened_required' in globals() else gerente_required
+@gerente_required
 def excluir_selecionado():
     id_produto = request.form.get("id_produto")
     if not id_produto:
