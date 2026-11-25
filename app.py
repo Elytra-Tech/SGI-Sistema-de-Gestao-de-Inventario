@@ -4,7 +4,8 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import firebase_admin
 from firebase_admin import credentials, firestore
-from datetime import datetime
+from datetime import datetime, timedelta
+from collections import defaultdict
 
 app = Flask(__name__, template_folder='.', static_folder='.', static_url_path='')
 app.secret_key = "techstore_secret_key"
@@ -130,7 +131,7 @@ def logout():
     return redirect(url_for("login"))
 
 # ---------------------------------------------------------
-# ROTA PRINCIPAL (CATÁLOGO)
+# ROTA PRINCIPAL (CATÁLOGO + RELATÓRIO DE VENDAS)
 # ---------------------------------------------------------
 @app.route("/")
 def index():
@@ -146,7 +147,51 @@ def index():
         p.setdefault("fornecedor", "Padrão")
         produtos.append(p)
         
-    return render_template("index.html", produtos=produtos)
+    # Calcula os mais vendidos dos últimos 30 dias para exibir na tela principal/gerencial
+    produtos_mais_vendidos = []
+    try:
+        data_limite = datetime.now() - timedelta(days=30)
+        vendas_stream = db.collection("vendas").stream()
+        vendas_validas_ids = set()
+        
+        for v in vendas_stream:
+            v_data = v.to_dict()
+            dh = v_data.get("data_hora")
+            if not dh:
+                vendas_validas_ids.add(v.id)
+                continue
+            try:
+                if isinstance(dh, datetime):
+                    dh_naive = dh.replace(tzinfo=None) if dh.tzinfo else dh
+                    if dh_naive >= data_limite:
+                        vendas_validas_ids.add(v.id)
+                else:
+                    vendas_validas_ids.add(v.id)
+            except Exception:
+                vendas_validas_ids.add(v.id)
+
+        ranking = defaultdict(lambda: {"nome": "Produto", "quantidade": 0, "faturamento": 0.0})
+        itens_stream = db.collection("itens_venda").stream()
+        for item_doc in itens_stream:
+            i_data = item_doc.to_dict()
+            v_id = i_data.get("venda_id")
+            if v_id in vendas_validas_ids:
+                p_id = i_data.get("produto_id")
+                qtd = int(i_data.get("quantidade_vendida", 0))
+                subtotal = float(i_data.get("subtotal_item", 0.0))
+                
+                p_doc = db.collection("produtos").document(p_id).get()
+                p_nome = p_doc.to_dict().get("nome_comercial", "Produto") if p_doc.exists else "Produto"
+                
+                ranking[p_id]["nome"] = p_nome
+                ranking[p_id]["quantidade"] += qtd
+                ranking[p_id]["faturamento"] += subtotal
+
+        produtos_mais_vendidos = sorted(ranking.values(), key=lambda x: x["quantidade"], reverse=True)
+    except Exception as e:
+        print(f"Erro ao calcular relatório: {e}")
+        
+    return render_template("index.html", produtos=produtos, produtos_mais_vendidos=produtos_mais_vendidos)
 
 # ---------------------------------------------------------
 # CADASTRAR NOVO PRODUTO (EXCLUSIVO GERENTE)
@@ -183,7 +228,6 @@ def novo_produto():
             })
             
             registrar_log("Cadastrou SKU", f"Produto: {nome_comercial} | SKU: {sku} | Qtd: {quantidade_estoque}")
-            
             flash("Ativo cadastrado com sucesso no Firebase!", "success")
             return redirect(url_for("index"))
         except Exception as e:
@@ -234,9 +278,7 @@ def movimentacao():
                 "justificativa": justificativa,
                 "data": firestore.SERVER_TIMESTAMP
             })
-            
             registrar_log(f"Movimentação ({tipo_operacao})", f"Produto: {nome_prod} | Qtd: {quantidade} | Motivo: {justificativa}")
-            
             flash("Movimentação consolidada com sucesso no Firebase!", "success")
             return redirect(url_for("index"))
         except Exception as e:
@@ -259,7 +301,6 @@ def listar_usuarios():
         u["id"] = doc.id
         lista_usuarios.append(u)
         
-    # Pega os últimos 20 logs de auditoria para exibir no painel
     logs_ref = db.collection("logs_auditoria").order_by("data_hora", direction=firestore.Query.DESCENDING).limit(20).stream()
     logs = [log.to_dict() for log in logs_ref]
     
@@ -304,7 +345,6 @@ def checkout():
         try:
             valor_total_venda = 0
             itens_a_faturar = []
-            nomes_produtos_vendidos = []
             
             for i in range(len(produtos_ids)):
                 p_id = produtos_ids[i]
@@ -326,8 +366,6 @@ def checkout():
                 preco_unitario = float(prod_data.get("preco_venda", 0))
                 subtotal = preco_unitario * qtd
                 valor_total_venda += subtotal
-                
-                nomes_produtos_vendidos.append(f"{qtd}x {nome_prod}")
                 
                 itens_a_faturar.append({
                     "produto_id": p_id,
@@ -365,7 +403,6 @@ def checkout():
                 db.collection("produtos").document(item["produto_id"]).update({"quantidade_estoque": novo_estoque})
             
             registrar_log("Realizou Venda (Checkout)", f"Pedido {numero_pedido} | Cliente: {cliente_nome} | Total: R$ {valor_total_venda:.2f}")
-            
             flash(f"Venda {numero_pedido} realizada com sucesso na nuvem!", "success")
             return redirect(url_for("recibo", venda_id=venda_ref.id))
             
@@ -433,9 +470,7 @@ def excluir_selecionado():
         sku_prod = prod_doc.to_dict().get("sku", "N/A") if prod_doc.exists else "N/A"
         
         db.collection("produtos").document(id_produto).delete()
-        
         registrar_log("Excluiu Produto", f"Produto removido: {nome_prod} (SKU: {sku_prod})")
-        
         flash("Ativo excluído com sucesso do Firebase!", "success")
     except Exception as e:
         flash(f"Erro ao excluir ativo: {e}", "danger")
